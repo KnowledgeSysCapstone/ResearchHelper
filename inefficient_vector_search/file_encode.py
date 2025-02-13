@@ -1,20 +1,33 @@
-import tensorflow_hub as hub
-import tensorflow as tf
+
 import numpy as np
+import argparse
 
-embed = hub.load("https://www.kaggle.com/models/google/universal-sentence-encoder/TensorFlow2/large/2")
+parser = argparse.ArgumentParser(prog='VectorEncoder',
+                                 description='Encode a file of sentences into a list of vectors and save them')
+parser.add_argument('sentence_file', help="File with plaintext sentences on each line")
+parser.add_argument('vectors_file', help="Path to save list of vectors to")
+parser.add_argument('--model', '-m', choices=['USE', 'SBERT'], default='USE', help="Language model to use for encodings")
 
-with open("Hot_dog_sentences.txt", 'r') as in_file:
+args = parser.parse_args()
+
+with open(args.sentence_file, 'r') as in_file:
     items = in_file.readlines()
 
-embeddings = embed(items)
+if args.model == 'USE':
 
-np.save("Hot_dog_encodings", embeddings)
+    import tensorflow_hub as hub
 
-#emb_str = tf.strings.format("{}", embeddings, summarize=-1)
-#tf.io.write_file("Hot_dog_encodings.txt", emb_str)
+    embed = hub.load("https://www.kaggle.com/models/google/universal-sentence-encoder/TensorFlow2/large/2")
+    embeddings = embed(items)
 
-print(embeddings)
+    np.save(args.vectors_file, embeddings)
 
-# with open("Hot_dog_encodings.txt", 'w') as out_file:
-#      json.dump(out_file, embeddings)
+elif args.model == 'SBERT':
+
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    embeddings = model.encode(items)
+
+    np.save(args.vectors_file, embeddings)
+
