@@ -66,11 +66,28 @@ def all_dois(article_text: str) -> list[tuple[str, int]]:
         if key in identifiers:
             tuples.append((identifiers[key], m.start()))
 
-    # print([x.group(5) for x in simple_res])
-    # print([(x.group(1), x.group(7)) for x in definition_res])
-    # print([x.group(1) for x in identifier_res])
-
     return tuples
+
+def text_before(article_text: str, index: int) -> tuple[str, str]:
+    par_index = article_text.rfind("\n", 0, index)
+    paragraph = article_text[par_index+1:index]
+
+    paragraph = re.sub(r"<(.*?)>", '$@', paragraph)
+    paragraph = re.sub(r"\{\{(.*?)}}", '$@', paragraph)
+    paragraph = re.sub(r"\[\[(.*?)\|", '', paragraph)
+    paragraph = re.sub(r"[\[\]]", '', paragraph)
+
+    rint = len(paragraph) - 1
+    while rint >= 0 and paragraph[rint] in '$@':
+        rint -= 1
+    ref_index = paragraph.rfind("$@", 0, rint)
+    inc = 1 if ref_index == -1 else 2
+    reference = paragraph[ref_index+inc:].lstrip()
+
+    paragraph = re.sub(r"\$@", '', paragraph)
+    reference = re.sub(r"\$@", '', reference)
+
+    return paragraph, reference
 
 
 if __name__ == '__main__':
@@ -91,25 +108,65 @@ if __name__ == '__main__':
     #         articles_file.write(a+"\n")
 
     # Find the DOIs in each of those articles
-    with open("articles_to_source.txt", 'r', encoding="UTF-8") as articles_file, \
-            open("doi_locs.txt", 'w', encoding="UTF-8") as dois_file:
-        dois_file.write("[\n")
-        first = True
-        i = 0
-        for line in articles_file:
-            if first:
-                first = False
-            else:
-                dois_file.write(",\n")
-            article = line.rstrip()
-            print(i, article)
-            i += 1
-            wikitext = dump_contents([article])
-            dois = all_dois(wikitext)
-            dois_to_dict = {d[1]: d[0] for d in dois}
-            with_article = {article: dois_to_dict}
-            to_json = json.dumps(with_article, indent=2)
-            dois_file.write(to_json)
-        dois_file.write("\n]\n")
+    # with open("articles_to_source.txt", 'r', encoding="UTF-8") as articles_file, \
+    #         open("doi_locs.txt", 'w', encoding="UTF-8") as dois_file:
+    #     dois_file.write("[\n")
+    #     first = True
+    #     i = 0
+    #     for line in articles_file:
+    #         if first:
+    #             first = False
+    #         else:
+    #             dois_file.write(",\n")
+    #         article = line.rstrip()
+    #         print(i, article)
+    #         i += 1
+    #         wikitext = dump_contents([article])
+    #         dois = all_dois(wikitext)
+    #         dois_to_dict = {d[1]: d[0] for d in dois}
+    #         with_article = {article: dois_to_dict}
+    #         to_json = json.dumps(with_article, indent=2)
+    #         dois_file.write(to_json)
+    #     dois_file.write("\n]\n")
+
+    # Save the paragraph and sentences preceeding each citation
+    # with open("doi_locs.txt", 'r', encoding="UTF-8") as locs, \
+    #         open("wiki_paragraphs.txt", 'w', encoding="UTF-8") as pars:
+    #     line = " "
+    #     locs.readline()
+    #     pars.write("[\n")
+    #     i = 0
+    #     while True:
+    #         dois_text = locs.readline()
+    #         if dois_text[0] == ']':
+    #             break
+    #         line = ' '
+    #         while line[0] == ' ':
+    #             line = locs.readline()
+    #             dois_text += line
+    #         dois_text = dois_text.rstrip()
+    #         if dois_text[-1] == ',':
+    #             dois_text = dois_text[:-1]
+    #         dois_dict = json.loads(dois_text)
+    #
+    #         article_title = next(iter(dois_dict))
+    #         print(i, article_title)
+    #         i += 1
+    #         full_text = dump_contents([article_title])
+    #         first = True
+    #         for pair in dois_dict[article_title].items():
+    #             partxt, reftxt = text_before(full_text, int(pair[0]))
+    #             elem = {
+    #                 "doi": pair[1],
+    #                 "wiki_article": article_title,
+    #                 "wiki_sentence": reftxt,
+    #                 "wiki_paragraph": partxt
+    #             }
+    #             if i > 1 or not first:
+    #                 pars.write(",\n")
+    #             pars.write(json.dumps(elem, indent=2))
+    #             if first:
+    #                 first = False
+    #     pars.write("\n]\n")
 
     pass
