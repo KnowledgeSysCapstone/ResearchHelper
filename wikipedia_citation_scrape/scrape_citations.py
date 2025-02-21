@@ -90,6 +90,25 @@ def text_before(article_text: str, index: int) -> tuple[str, str]:
     return paragraph, reference
 
 
+def crossref_abstract(doi: str) -> str:
+    metadata = requests.get("https://api.crossref.org/works/{}".format(doi))
+    if metadata.text == "Resource not found.":
+        return "> No Resource"
+    metadata_dict = json.loads(metadata.text)["message"]
+    if "abstract" not in metadata_dict:
+        # print(json.dumps(metadata_dict, indent=2))
+        #print("NON", doi)
+        return "> No Abstract"
+    else:
+        abstract = metadata_dict["abstract"]
+        plain = re.finditer(r"<(.*?:)?p(.*?)>((.|\n)*?)</(.*?:)?p>", abstract)
+        full_abstract = ""
+        for p in plain:
+            full_abstract += str(p[3]).strip() + "\n"
+
+        return full_abstract
+
+
 if __name__ == '__main__':
     #Generate file of list article plaintext
     # pages = ["List of common misconceptions about arts and culture",
@@ -169,4 +188,44 @@ if __name__ == '__main__':
     #                 first = False
     #     pars.write("\n]\n")
 
+    # Get abstracts for all DOI citations
+    # start_at = 0
+    # with open("wiki_paragraphs.txt", 'r', encoding="UTF-8") as wiki_pars, \
+    #         open("final_dataset.txt", 'a', encoding="UTF-8") as final:
+    #     line = " "
+    #     wiki_pars.readline()
+    #     if start_at == 0:
+    #         final.write("[\n")
+    #     i = 0
+    #     count_err = 0
+    #     while True:
+    #         pars_text = wiki_pars.readline()
+    #         if pars_text[0] == ']':
+    #             break
+    #         line = ' '
+    #         while line[0] == ' ':
+    #             line = wiki_pars.readline()
+    #             pars_text += line
+    #         pars_text = pars_text.rstrip()
+    #         if pars_text[-1] == ',':
+    #             pars_text = pars_text[:-1]
+    #         if i < start_at:
+    #             i += 1
+    #             continue
+    #         pars_dict = json.loads(pars_text)
+    #         print(i, pars_dict["wiki_article"])
+    #         i += 1
+    #         new_dict = pars_dict.copy()
+    #         abstract_txt = crossref_abstract(pars_dict["doi"])
+    #         new_dict["abstract"] = abstract_txt
+    #         if len(abstract_txt) == 0:
+    #             print("!!!!!!!", pars_dict["doi"])
+    #         if abstract_txt[0] == '>':
+    #             count_err += 1
+    #         if i > 1:
+    #             final.write(",\n")
+    #         final.write(json.dumps(new_dict, indent=2))
+    #         print("abstract %", 1 - count_err/float(i-start_at))
+    #
+    #     final.write("\n]\n")
     pass
