@@ -71,10 +71,11 @@ def all_dois(article_text: str) -> list[tuple[str, int]]:
 def text_before(article_text: str, index: int) -> tuple[str, str]:
     par_index = article_text.rfind("\n", 0, index)
     paragraph = article_text[par_index+1:index]
+    print(paragraph)
 
     paragraph = re.sub(r"<(.*?)>", '$@', paragraph)
     paragraph = re.sub(r"\{\{(.*?)}}", '$@', paragraph)
-    paragraph = re.sub(r"\[\[(.*?)\|", '', paragraph)
+    paragraph = re.sub(r"\[\[([^\[]*?)\|", '', paragraph)
     paragraph = re.sub(r"[\[\]]", '', paragraph)
 
     rint = len(paragraph) - 1
@@ -108,9 +109,19 @@ def crossref_abstract(doi: str) -> str:
 
         return full_abstract
 
+def test_parse(article: str, doi: str) -> tuple[str, str]:
+    text = dump_contents([article])
+    dois = all_dois(text)
+    idx = -1
+    for d in dois:
+        if d[0] == doi:
+            idx = d[1]
+    sentence, paragraph = text_before(text, idx)
+    return sentence, paragraph
+
 
 if __name__ == '__main__':
-    #Generate file of list article plaintext
+    # Generate file of list article plaintext
     # pages = ["List of common misconceptions about arts and culture",
     #                                   "List of common misconceptions about science, technology, and mathematics",
     #                                   "List of common misconceptions about history"]
