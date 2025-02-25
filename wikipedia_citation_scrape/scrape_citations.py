@@ -71,10 +71,11 @@ def all_dois(article_text: str) -> list[tuple[str, int]]:
 def text_before(article_text: str, index: int) -> tuple[str, str]:
     par_index = article_text.rfind("\n", 0, index)
     paragraph = article_text[par_index+1:index]
-    print(paragraph)
 
+    print(paragraph)
     paragraph = re.sub(r"<(.*?)>", '$@', paragraph)
     paragraph = re.sub(r"\{\{(.*?)}}", '$@', paragraph)
+    print(paragraph)
     paragraph = re.sub(r"\[\[([^\[]*?)\|", '', paragraph)
     paragraph = re.sub(r"[\[\]]", '', paragraph)
 
@@ -121,6 +122,11 @@ def test_parse(article: str, doi: str) -> tuple[str, str]:
 
 
 if __name__ == '__main__':
+
+    # Test wiki parsing for specific doi
+    # for x in test_parse("Quantum entanglement", "10.1038/nature15759"):
+    #     print(x)
+
     # Generate file of list article plaintext
     # pages = ["List of common misconceptions about arts and culture",
     #                                   "List of common misconceptions about science, technology, and mathematics",
@@ -239,4 +245,62 @@ if __name__ == '__main__':
     #         print("abstract %", 1 - count_err/float(i-start_at))
     #
     #     final.write("\n]\n")
+
+    # Merging the abstracts from final_dataset with the sentences from wiki_paragraphs
+    # with open("wiki_paragraphs.txt", 'r', encoding='UTF-8') as wiki_file:
+    #     all_wiki_data = json.load(wiki_file)
+    # wiki_dict = {}
+    # for x in all_wiki_data:
+    #     if x["doi"] in wiki_dict:
+    #         wiki_dict[x["doi"]].append(x)
+    #     else:
+    #         wiki_dict[x["doi"]] = [x]
+    #
+    # with open("final_dataset.txt", 'r', encoding='UTF-8') as og_final, \
+    #         open("new_final_dataset.txt", 'w', encoding='UTF-8') as new_final:
+    #     line = " "
+    #     og_final.readline()
+    #     new_final.write("[\n")
+    #     i = 0
+    #     while True:
+    #         og_text = og_final.readline()
+    #         if og_text[0] == ']':
+    #             break
+    #         line = ' '
+    #         while line[0] == ' ':
+    #             line = og_final.readline()
+    #             og_text += line
+    #         og_text = og_text.rstrip()
+    #         if og_text[-1] == ',':
+    #             og_text = og_text[:-1]
+    #         og_dict = json.loads(og_text)
+    #
+    #         doi = og_dict["doi"]
+    #
+    #         if doi not in wiki_dict:
+    #             print("doi {} not available in {}".format(doi, og_dict["wiki_article"]))
+    #             continue
+    #
+    #         wiki_entries = wiki_dict[doi]
+    #         first = True
+    #         for we in wiki_entries:
+    #             if i > 0 or not first:
+    #                 new_final.write(",\n")
+    #             else:
+    #                 first = False
+    #             new_dict = we.copy()
+    #             new_dict["abstract"] = og_dict["abstract"]
+    #
+    #             new_final.write(json.dumps(new_dict, indent=2))
+    #
+    #         i += 1
+    #
+    #     new_final.write("\n]\n")
+    #
+    # with open("final_dataset.txt", 'r') as fd:
+    #     print(sum(1 for line in fd))
+    # with open("new_final_dataset.txt", 'r') as nfd:
+    #     print(sum(1 for line in nfd))
+
+
     pass
