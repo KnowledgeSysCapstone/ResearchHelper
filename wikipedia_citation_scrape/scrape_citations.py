@@ -247,60 +247,66 @@ if __name__ == '__main__':
     #     final.write("\n]\n")
 
     # Merging the abstracts from final_dataset with the sentences from wiki_paragraphs
-    # with open("wiki_paragraphs.txt", 'r', encoding='UTF-8') as wiki_file:
-    #     all_wiki_data = json.load(wiki_file)
-    # wiki_dict = {}
-    # for x in all_wiki_data:
-    #     if x["doi"] in wiki_dict:
-    #         wiki_dict[x["doi"]].append(x)
-    #     else:
-    #         wiki_dict[x["doi"]] = [x]
-    #
-    # with open("final_dataset.txt", 'r', encoding='UTF-8') as og_final, \
-    #         open("new_final_dataset.txt", 'w', encoding='UTF-8') as new_final:
-    #     line = " "
-    #     og_final.readline()
-    #     new_final.write("[\n")
-    #     i = 0
-    #     while True:
-    #         og_text = og_final.readline()
-    #         if og_text[0] == ']':
-    #             break
-    #         line = ' '
-    #         while line[0] == ' ':
-    #             line = og_final.readline()
-    #             og_text += line
-    #         og_text = og_text.rstrip()
-    #         if og_text[-1] == ',':
-    #             og_text = og_text[:-1]
-    #         og_dict = json.loads(og_text)
-    #
-    #         doi = og_dict["doi"]
-    #
-    #         if doi not in wiki_dict:
-    #             print("doi {} not available in {}".format(doi, og_dict["wiki_article"]))
-    #             continue
-    #
-    #         wiki_entries = wiki_dict[doi]
-    #         first = True
-    #         for we in wiki_entries:
-    #             if i > 0 or not first:
-    #                 new_final.write(",\n")
-    #             else:
-    #                 first = False
-    #             new_dict = we.copy()
-    #             new_dict["abstract"] = og_dict["abstract"]
-    #
-    #             new_final.write(json.dumps(new_dict, indent=2))
-    #
-    #         i += 1
-    #
-    #     new_final.write("\n]\n")
-    #
-    # with open("final_dataset.txt", 'r') as fd:
-    #     print(sum(1 for line in fd))
-    # with open("new_final_dataset.txt", 'r') as nfd:
-    #     print(sum(1 for line in nfd))
+    with open("wiki_paragraphs.txt", 'r', encoding='UTF-8') as wiki_file:
+        all_wiki_data = json.load(wiki_file)
+    wiki_dict = {}
+    for x in all_wiki_data:
+        if x["doi"] in wiki_dict:
+            wiki_dict[x["doi"]].append(x)
+        else:
+            wiki_dict[x["doi"]] = [x]
 
+    addressed_dois = {k for k in wiki_dict.keys()}
+
+    with open("rawtext_dataset_og.txt", 'r', encoding='UTF-8') as og_final, \
+            open("rawtext_dataset.txt", 'w', encoding='UTF-8') as new_final:
+        line = " "
+        og_final.readline()
+        new_final.write("[\n")
+        i = 0
+        first = True
+        while True:
+            print(i)
+            og_text = og_final.readline()
+            if og_text[0] == ']':
+                break
+            line = ' '
+            while line[0] == ' ':
+                line = og_final.readline()
+                og_text += line
+            og_text = og_text.rstrip()
+            if og_text[-1] == ',':
+                og_text = og_text[:-1]
+            og_dict = json.loads(og_text)
+
+            doi = og_dict["doi"]
+
+            if doi not in addressed_dois:
+                #print("doi {} not available in {}".format(doi, og_dict["wiki_article"]))
+                print(f"passing on doi {doi}")
+                continue
+
+            addressed_dois.remove(doi)
+
+            wiki_entries = wiki_dict[doi]
+
+            for we in wiki_entries:
+                if og_dict["abstract"][0] == ">":
+                    continue
+
+                if not first:
+                    new_final.write(",\n")
+                else:
+                    first = False
+                new_dict = we.copy()
+                text = og_dict["abstract"]
+                cleantext = re.sub(r'<.*?>', '', text)
+                new_dict["abstract"] = cleantext
+
+                new_final.write(json.dumps(new_dict, indent=2))
+
+            i += 1
+
+        new_final.write("\n]\n")
 
     pass
