@@ -1,6 +1,7 @@
 import spacy
 import json
 
+from sentence_transformers import SentenceTransformer
 
 if __name__ == '__main__':
 
@@ -28,4 +29,25 @@ if __name__ == '__main__':
 
     with open('abstracts_parsed.txt', 'r', encoding='UTF-8') as file:
         sentence_dict = json.load(file)
-        
+
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    vector_dict = {}
+
+    tot = len(sentence_dict)
+    i = 0
+    for doi in sentence_dict:
+        sentences = sentence_dict[doi]
+
+        embeddings = model.encode(sentences)
+
+        vector_dict[doi] = embeddings.tolist()
+        print(f"article {doi}: {i}/{tot}")
+        i += 1
+
+    json_str = json.dumps(vector_dict, indent=2)
+    json_str = json_str.replace("\n      ", "")
+    json_str = json_str.replace("\n      ", "")
+    json_str = json_str.replace("\n    ]", "]")
+
+    with open('abstracts_vectorized.txt', 'w', encoding='UTF-8') as file:
+        file.write(json_str)
