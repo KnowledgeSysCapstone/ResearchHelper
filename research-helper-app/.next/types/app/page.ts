@@ -1,4 +1,4 @@
-// File: C:\Users\Caleb\Desktop\Capstone\research-helper\src\app\page.tsx
+// File: C:\Users\Caleb\Desktop\Capstone\ResearchHelper\research-helper-app\src\app\page.tsx
 import * as entry from '../../../src/app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

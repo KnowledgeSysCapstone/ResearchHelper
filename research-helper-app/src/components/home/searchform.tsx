@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -14,7 +15,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { queryAPI } from "@/api/queryAPI"
 
 const formSchema = z.object({
     searchQuery: z.string().min(1, {
@@ -23,7 +25,7 @@ const formSchema = z.object({
 })
 
 export function SearchForm() {
-    // 1. Define the form.
+    // 1. Define the form schema.
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -32,31 +34,51 @@ export function SearchForm() {
     })
     
     // 2. Define a submit handler.
-    function onSubmit(values: z.infer<typeof formSchema>) {
-    // Do something with the form values.
-    alert(values.searchQuery)
+    // State for the result, loading.
+    const [result, setResult] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false)
+
+    async function onSubmit(values: z.infer<typeof formSchema>) {
+      // Loading starts before api call. 
+      setLoading(true) 
+
+      try {
+        // Making API call to the backend.
+        //const response = await queryAPI(values.searchQuery)
+        // The response contains the raw result.
+        //setResult(response.data) // Set the result in state
+      } catch (error) {
+        //console.error("Error during API call: ", error)
+        //setResult("An error occurred. Please try again.")
+      } finally {
+        setLoading(false)
+      }
+      alert("Claim entered.")
     }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <FormField
-          control={form.control}
-          name="searchQuery"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Search</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter your search" {...field} />
-              </FormControl>
-              <FormDescription>
-                Type your search term here.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit">Submit</Button>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-12 gap-4 items-center">
+        {/* Input Field - spans majority of columns */}
+        <div className="col-span-11">
+          <FormField
+            control={form.control}
+            name="searchQuery"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Textarea className="w-full resize-none overflow-auto text-lg" placeholder="Enter your claim... " {...field} />
+                </FormControl>
+                <FormMessage className="text-destructive" />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Submit Button - spans 1 column */}
+        <div className="col-span-1">
+          <Button type="submit" variant="default" size="lg" className="rounded-full">Submit</Button>
+        </div>
       </form>
     </Form>
   )
