@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "${ES_PORT}:9200"
+    mem_limit: ${MEM_LIMIT}
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+    container_name: kibana
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+    ports:
+      - "${KIBANA_PORT}:5601"
+    mem_limit: ${MEM_LIMIT}
+
+  backend:
+    build: ./local-be
+    container_name: fastapi_backend
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOST=http://elasticsearch:9200
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./local-fe
+    container_name: nextjs_frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  esdata:
+    driver: local
