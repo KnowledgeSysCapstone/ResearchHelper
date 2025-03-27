@@ -9,10 +9,23 @@ services:
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
       - xpack.security.enabled=true
       - xpack.security.http.ssl.enabled=false
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     volumes:
       - esdata:/usr/share/elasticsearch/data
     ports:
       - "${ES_PORT}:9200"
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-u", "elastic:${ELASTIC_PASSWORD}", "http://localhost:9200"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     mem_limit: ${MEM_LIMIT}
 
   kibana:
@@ -29,23 +42,42 @@ services:
     mem_limit: ${MEM_LIMIT}
 
   backend:
-    build: ./local-be
+    build:
+      context: ./local-be
     container_name: fastapi_backend
-    depends_on:
-      - elasticsearch
     environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
       - ELASTICSEARCH_HOST=http://elasticsearch:9200
     ports:
       - "8000:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   frontend:
-    build: ./local-fe
+    build:
+      context: ./local-fe
     container_name: nextjs_frontend
-    depends_on:
-      - backend
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - app_network
 
 volumes:
   esdata:
     driver: local
+
+networks:
+  app_network:
+    driver: bridge

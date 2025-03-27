@@ -16,16 +16,17 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Textarea } from "@/components/ui/textarea"
-import { queryAPI } from "@/api/queryAPI"
+import { vectorSearchAPI } from "@/api/queryAPI"
+import { SearchResults } from "./SearchResults"
 
 const formSchema = z.object({
     searchQuery: z.string().min(1, {
-        message: "Search query cannot not be empty.",
+        message: "Search content cannot be empty.",
     }),
 })
 
 export function SearchForm() {
-    // 1. Define the form schema.
+    // 1. Define form
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -33,53 +34,74 @@ export function SearchForm() {
         },
     })
     
-    // 2. Define a submit handler.
-    // State for the result, loading.
-    const [result, setResult] = useState<string | null>(null)
+    // 2. Define state
+    const [results, setResults] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
+    // 3. Submit handler
     async function onSubmit(values: z.infer<typeof formSchema>) {
-      // Loading starts before api call. 
-      setLoading(true) 
+      // Reset state
+      setError(null)
+      setLoading(true)
 
       try {
-        // Making API call to the backend.
-        //const response = await queryAPI(values.searchQuery)
-        // The response contains the raw result.
-        //setResult(response.data) // Set the result in state
+        // Call vector search API
+        const response = await vectorSearchAPI(values.searchQuery)
+        setResults(response.results)
       } catch (error) {
-        //console.error("Error during API call: ", error)
-        //setResult("An error occurred. Please try again.")
+        console.error("Error during API call: ", error)
+        setError("An error occurred during search. Please try again later.")
       } finally {
         setLoading(false)
       }
-      alert("Claim entered.")
     }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-12 gap-4 items-center">
-        {/* Input Field - spans majority of columns */}
-        <div className="col-span-11">
-          <FormField
-            control={form.control}
-            name="searchQuery"
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <Textarea className="w-full resize-none overflow-auto text-lg" placeholder="Enter your claim... " {...field} />
-                </FormControl>
-                <FormMessage className="text-destructive" />
-              </FormItem>
-            )}
-          />
-        </div>
+    <div className="w-full max-w-6xl">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-12 gap-4 items-center">
+          {/* Input field - occupies most columns */}
+          <div className="col-span-11">
+            <FormField
+              control={form.control}
+              name="searchQuery"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea 
+                      className="w-full resize-none overflow-auto text-lg" 
+                      placeholder="Enter your search text..." 
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage className="text-destructive" />
+                </FormItem>
+              )}
+            />
+          </div>
 
-        {/* Submit Button - spans 1 column */}
-        <div className="col-span-1">
-          <Button type="submit" variant="default" size="lg" className="rounded-full">Submit</Button>
-        </div>
-      </form>
-    </Form>
+          {/* Submit button - occupies 1 column */}
+          <div className="col-span-1">
+            <Button 
+              type="submit" 
+              variant="default" 
+              size="lg" 
+              className="rounded-full"
+              disabled={loading}
+            >
+              {loading ? 'Searching...' : 'Search'}
+            </Button>
+          </div>
+        </form>
+      </Form>
+
+      {/* Search results display */}
+      <SearchResults 
+        results={results} 
+        isLoading={loading} 
+        error={error}
+      />
+    </div>
   )
 }

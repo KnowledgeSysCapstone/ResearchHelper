@@ -1,2 +1,6 @@
 fastapi
 elasticsearch
+sentence-transformers
+numpy
+python-dotenv
+uvicorn

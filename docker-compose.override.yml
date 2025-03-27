@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  kibana:
+    profiles:
+      - disabled  # 这会让kibana服务不自动启动
+      
+  # 修复前端容器不持续运行的问题
+  frontend:
+    tty: true  # 保持容器运行
+    stdin_open: true 

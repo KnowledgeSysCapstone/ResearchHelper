@@ -1,11 +1,17 @@
-FROM python:3.9
+FROM python:3.10-slim
 
-WORKDIR /code
+WORKDIR /app
 
-COPY requirements.txt /code/requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+# 预下载sentence-transformers模型
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
-COPY . /code
+# 设置环境变量
+ENV ELASTIC_PASSWORD=yourpassword
+ENV ELASTICSEARCH_HOST=http://elasticsearch:9200
 
-CMD ["fastapi", "run", "code/main.py", "--port", "80"]
+COPY . .
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
