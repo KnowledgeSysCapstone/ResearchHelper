@@ -216,3 +216,4 @@ next-env.d.ts
 # Large data files
 abstracts_parsed.txt
 abstracts_vectorized.txt
+abstracts_*.txt

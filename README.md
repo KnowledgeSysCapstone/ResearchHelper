@@ -1,59 +1,152 @@
-# Research Helper - 向量搜索系统
+# Research Helper - Vector Search System
 
-这是一个基于Elasticsearch的向量搜索系统，可以通过向量相似度搜索研究论文中的句子。
+A vector search system based on Elasticsearch for finding similar sentences in research papers using vector similarity.
 
-## 项目架构
+## System Architecture
 
-- **Elasticsearch**: 提供向量存储和搜索功能
-- **FastAPI后端**: 提供向量化和搜索API
-- **Next.js前端**: 提供用户界面
+- **Elasticsearch**: Provides vector storage and search functionality
+- **FastAPI Backend**: Provides vectorization and search APIs
+- **Next.js Frontend**: Provides user interface
 
-## 启动服务
+## Getting Started
 
-使用Docker Compose启动所有服务：
+### Prerequisites
+
+- Docker and Docker Compose
+- Python 3.10+
+- Node.js 18+
+
+### Environment Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/ResearchHelper.git
+   cd ResearchHelper
+   ```
+
+2. Create `.env` file with the following content:
+   ```
+   STACK_VERSION=8.12.0
+   ELASTIC_PASSWORD=yourpassword
+   ES_PORT=9200
+   KIBANA_PORT=5601
+   MEM_LIMIT=1g
+   ```
+
+## Starting the Services
+
+Start all services using Docker Compose:
 
 ```bash
 docker-compose up --build
 ```
 
-启动后，可以访问以下服务：
+After startup, you can access the following services:
 
 - Elasticsearch: http://localhost:9200
-- FastAPI后端: http://localhost:8000
-- Next.js前端: http://localhost:3000
+- FastAPI backend: http://localhost:8000
+- Next.js frontend: http://localhost:3000
 
-## 数据加载
+## Creating Elasticsearch Index
 
-系统使用了两个关键文件：
+The system will automatically create the required index when uploading data, but you can also create it manually:
 
-- `abstracts_parsed.txt`: 包含原始句子数据，以DOI为索引
-- `abstracts_vectorized.txt`: 包含句子的向量表示
+```bash
+curl -XPUT -u elastic:yourpassword "http://localhost:9200/research_papers" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mappings": {
+      "properties": {
+        "doi": {
+          "type": "keyword"
+        },
+        "sentences": {
+          "type": "text"
+        },
+        "sentence_vectors": {
+          "type": "dense_vector",
+          "dims": 384,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    }
+  }'
+```
 
-要将数据加载到Elasticsearch，请运行：
+## Data Preparation and Upload
+
+The system requires two key files:
+
+- `abstracts_parsed.txt`: Contains original sentence data indexed by DOI
+- `abstracts_vectorized.txt`: Contains vector representations of sentences
+
+### Data Format
+
+1. **abstracts_parsed.txt**: A JSON file with DOIs as keys and arrays of sentences as values
+   ```json
+   {
+     "10.1234/example": ["First sentence.", "Second sentence."],
+     "10.5678/sample": ["Another paper sentence."]
+   }
+   ```
+
+2. **abstracts_vectorized.txt**: A JSON file with DOIs as keys and arrays of vector arrays as values
+   ```json
+   {
+     "10.1234/example": [[0.1, 0.2, ...], [0.3, 0.4, ...]],
+     "10.5678/sample": [[0.5, 0.6, ...]]
+   }
+   ```
+
+### Uploading Data
+
+To upload data to Elasticsearch, run:
 
 ```bash
 python upload_data.py
 ```
 
-## 功能使用
+The script will:
+1. Connect to Elasticsearch
+2. Create the index if it doesn't exist
+3. Parse the data files
+4. Upload documents in batches
+5. Report progress and completion
 
-1. 访问前端界面: http://localhost:3000
-2. 在搜索框中输入您想要搜索的文本
-3. 系统会将文本转换为向量并搜索最相似的句子
-4. 查看搜索结果，包含DOI、相似度分数和句子内容
+## Using the System
 
-## API接口
+1. Visit the frontend interface: http://localhost:3000
+2. Enter your search text in the search box
+3. The system will convert the text to a vector and find the most similar sentences
+4. View the search results, including DOI, similarity score, and sentence content
 
-后端提供以下API接口：
+## API Endpoints
 
-- **向量搜索**: `POST /search/vector` - 通过文本搜索相似句子
-- **DOI搜索**: `GET /search/doi/{doi}` - 根据DOI查找句子
-- **健康检查**: `GET /health` - 检查系统状态
+The backend provides the following API endpoints:
 
-## 向量搜索演示
+- **Vector Search**: `POST /search/vector` - Search for similar sentences by text
+- **DOI Search**: `GET /search/doi/{doi}` - Find sentences by DOI
+- **Health Check**: `GET /health` - Check system status
 
-使用命令行工具进行向量搜索演示：
+## Troubleshooting
+
+- **Elasticsearch Connection Issues**: Check if Elasticsearch is running with `curl -u elastic:yourpassword http://localhost:9200`
+- **Backend Issues**: Check logs with `docker logs fastapi_backend`
+- **Frontend Issues**: Check logs with `docker logs nextjs_frontend`
+- **Data Loading Issues**: Verify file formats and run `upload_data.py` with proper permissions
+
+## Clearing and Rebuilding the Index
+
+To clear the index and reupload data:
 
 ```bash
-python vector_search.py --demo
+# Delete the index
+curl -XDELETE -u elastic:yourpassword "http://localhost:9200/research_papers"
+
+# Recreate the index
+curl -XPUT -u elastic:yourpassword "http://localhost:9200/research_papers" -H "Content-Type: application/json" -d '{"mappings":{"properties":{"doi":{"type":"keyword"},"sentences":{"type":"text"},"sentence_vectors":{"type":"dense_vector","dims":384,"index":true,"similarity":"cosine"}}}}'
+
+# Reupload data
+python upload_data.py
 ```

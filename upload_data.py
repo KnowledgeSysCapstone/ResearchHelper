@@ -5,28 +5,28 @@ import numpy as np
 from elasticsearch import Elasticsearch
 from tqdm import tqdm
 
-# 获取环境变量
+# Get environment variables
 with open('.env', 'r') as f:
     for line in f:
         if line.startswith('ELASTIC_PASSWORD='):
             elastic_password = line.strip().split('=')[1]
             break
 
-# 配置 Elasticsearch 连接
+# Configure Elasticsearch connection
 es = Elasticsearch(
     "http://localhost:9200",
     basic_auth=("elastic", elastic_password)
 )
 
-# 检查Elasticsearch是否正在运行
+# Check if Elasticsearch is running
 try:
     es.info()
-    print("已成功连接到 Elasticsearch")
+    print("Successfully connected to Elasticsearch")
 except Exception as e:
-    print(f"无法连接到 Elasticsearch: {e}")
+    print(f"Unable to connect to Elasticsearch: {e}")
     exit(1)
 
-# 如果索引不存在，创建索引
+# Create index if it doesn't exist
 if not es.indices.exists(index="research_papers"):
     mapping = {
         "mappings": {
@@ -43,31 +43,31 @@ if not es.indices.exists(index="research_papers"):
         }
     }
     es.indices.create(index="research_papers", body=mapping)
-    print("已创建 'research_papers' 索引")
+    print("Created 'research_papers' index")
 
-# 加载原始文本数据
-print("加载原始文本数据...")
+# Load original text data
+print("Loading original text data...")
 with open('abstracts_parsed.txt', 'r') as f:
     data = f.read().strip()
-    # 移除末尾可能存在的多余百分号
+    # Remove any trailing percentage sign
     if data.endswith('%'):
         data = data[:-1]
     parsed_data = json.loads(data)
 
-# 加载向量化数据
-print("加载向量化数据...")
+# Load vectorized data
+print("Loading vectorized data...")
 try:
     with open('abstracts_vectorized.txt', 'r') as f:
         data = f.read().strip()
         if data.endswith('%'):
             data = data[:-1]
         vectorized_data = json.loads(data)
-        print(f"成功加载向量化数据")
+        print(f"Successfully loaded vectorized data")
 except json.JSONDecodeError as e:
-    print(f"JSON解析错误: {e}")
-    print("尝试使用逐行解析方法...")
+    print(f"JSON parsing error: {e}")
+    print("Trying line-by-line parsing method...")
     
-    # 如果JSON解析失败，尝试手动解析
+    # If JSON parsing fails, try manual parsing
     vectorized_data = {}
     current_doi = None
     current_vectors = []
@@ -80,68 +80,68 @@ except json.JSONDecodeError as e:
             if not line:
                 continue
                 
-            # 计算括号的数量来追踪JSON结构
+            # Count brackets to track JSON structure
             bracket_count += line.count('{') - line.count('}')
             bracket_count += line.count('[') - line.count(']')
             
             combined_lines += line
             
-            # 当括号平衡时，尝试解析完整的JSON对象
+            # When brackets are balanced, try to parse complete JSON object
             if bracket_count == 0 and combined_lines.strip():
                 try:
                     obj = json.loads(combined_lines)
                     vectorized_data = obj
                     combined_lines = ""
-                    print("成功解析完整的JSON对象")
+                    print("Successfully parsed complete JSON object")
                     break
                 except json.JSONDecodeError:
-                    # 可能不是完整的JSON，继续添加行
+                    # Might not be complete JSON, continue adding lines
                     pass
 
-print(f"解析了 {len(parsed_data)} 个DOI的原始文本")
-print(f"解析了 {len(vectorized_data)} 个DOI的向量数据")
+print(f"Parsed original text for {len(parsed_data)} DOIs")
+print(f"Parsed vector data for {len(vectorized_data)} DOIs")
 
-# 上传数据到 Elasticsearch
-print("上传数据到 Elasticsearch...")
+# Upload data to Elasticsearch
+print("Uploading data to Elasticsearch...")
 bulk_data = []
 count = 0
 
 for doi, sentences in tqdm(parsed_data.items()):
     if doi in vectorized_data:
         vectors = vectorized_data[doi]
-        # 确保句子和向量数量一致
+        # Ensure sentence and vector counts match
         min_len = min(len(sentences), len(vectors))
         
         for i in range(min_len):
-            # 准备文档
+            # Prepare document
             doc = {
                 "doi": doi,
                 "sentences": sentences[i],
                 "sentence_vectors": vectors[i]
             }
             
-            # 准备批量操作
+            # Prepare bulk operation
             bulk_data.append({"index": {"_index": "research_papers"}})
             bulk_data.append(doc)
             count += 1
             
-            # 每2000个文档批量提交一次
+            # Submit in batches of 2000 documents
             if len(bulk_data) >= 4000:
-                print(f"批量上传 {len(bulk_data)//2} 个文档...")
+                print(f"Bulk uploading {len(bulk_data)//2} documents...")
                 try:
                     es.bulk(body=bulk_data)
-                    print(f"已上传 {count} 个文档")
+                    print(f"Uploaded {count} documents")
                 except Exception as e:
-                    print(f"上传时出错: {e}")
+                    print(f"Error during upload: {e}")
                 bulk_data = []
 
-# 提交剩余数据
+# Submit remaining data
 if bulk_data:
-    print(f"上传剩余的 {len(bulk_data)//2} 个文档...")
+    print(f"Uploading remaining {len(bulk_data)//2} documents...")
     try:
         es.bulk(body=bulk_data)
-        print(f"已上传总计 {count} 个文档")
+        print(f"Total {count} documents uploaded")
     except Exception as e:
-        print(f"上传剩余数据时出错: {e}")
+        print(f"Error uploading remaining data: {e}")
 
-print("完成！数据已成功上传到 Elasticsearch。") 
+print("Complete! Data successfully uploaded to Elasticsearch.") 
