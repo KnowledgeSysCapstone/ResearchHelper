@@ -60,9 +60,10 @@ export function SearchForm() {
   return (
     <div className="w-full max-w-6xl">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-12 gap-4 items-center">
+        <form onSubmit={form.handleSubmit(onSubmit)}>
           {/* Input field - occupies most columns */}
-          <div className="col-span-11">
+          <div className="grid grid-cols-1 gap-5 justify-items-center">
+          <div>
             <FormField
               control={form.control}
               name="searchQuery"
@@ -70,7 +71,7 @@ export function SearchForm() {
                 <FormItem>
                   <FormControl>
                     <Textarea 
-                      className="w-full resize-none overflow-auto text-lg" 
+                      className="w-2xl resize-none overflow-auto text-lg" 
                       placeholder="Enter your search text..." 
                       {...field} 
                     />
@@ -82,7 +83,7 @@ export function SearchForm() {
           </div>
 
           {/* Submit button - occupies 1 column */}
-          <div className="col-span-1">
+          <div>
             <Button 
               type="submit" 
               variant="default" 
@@ -92,6 +93,7 @@ export function SearchForm() {
             >
               {loading ? 'Searching...' : 'Search'}
             </Button>
+          </div>
           </div>
         </form>
       </Form>
