@@ -1,4 +1,4 @@
-// 原始查询API函数
+// Original query API function
 export async function queryAPI(query: string) {
     const response = await fetch("REPLACEWITHENDPOINT", {
       method: "POST",
@@ -15,10 +15,10 @@ export async function queryAPI(query: string) {
     return response.json()
   }
   
-// API基础URL - 在Docker环境中使用服务名称
+// API Base URL - Use service name in Docker environment
 const API_BASE_URL = 'http://backend:8000';
 
-// 向后端API发送搜索请求
+// Send search request to backend API
 export async function vectorSearchAPI(text: string, topK: number = 10) {
   try {
     const response = await fetch('/api/search/vector', {
@@ -43,7 +43,7 @@ export async function vectorSearchAPI(text: string, topK: number = 10) {
   }
 }
 
-// 根据DOI搜索
+// Search by DOI
 export async function searchByDOI(doi: string, size: number = 10) {
   try {
     const response = await fetch(`/api/search/doi/${encodeURIComponent(doi)}?size=${size}`, {
@@ -64,7 +64,7 @@ export async function searchByDOI(doi: string, size: number = 10) {
   }
 }
 
-// 健康检查
+// Health check
 export async function healthCheck() {
   try {
     const response = await fetch('/api/health', {

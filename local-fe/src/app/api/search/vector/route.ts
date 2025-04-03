@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
-// API基础URL - 在Docker环境中使用服务名称
+// API Base URL - Use service name in Docker environment
 const API_BASE_URL = 'http://backend:8000';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log("前端API收到请求体:", body);
+    console.log("Frontend API received request body:", body);
     
     const response = await fetch(`${API_BASE_URL}/search/vector`, {
       method: 'POST',
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`后端API响应错误 ${response.status}:`, errorText);
+      console.error(`Backend API response error ${response.status}:`, errorText);
       throw new Error(`Backend API responded with status: ${response.status}, body: ${errorText}`);
     }
     

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// API基础URL - 在Docker环境中使用服务名称
+// API Base URL - Use service name in Docker environment
 const API_BASE_URL = 'http://backend:8000';
 
 export async function GET() {

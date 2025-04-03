@@ -3,11 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: 'standalone',
   eslint: {
-    // 忽略ESLint错误，允许构建继续进行
+    // Ignore ESLint errors, allow build to continue
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // 忽略TypeScript错误，允许构建继续进行
+    // Ignore TypeScript errors, allow build to continue
     ignoreBuildErrors: true,
   },
 };

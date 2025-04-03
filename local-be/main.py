@@ -9,57 +9,57 @@ from pydantic import BaseModel
 import numpy as np
 import logging
 
-# 设置日志
+# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 加载环境变量
+# Load environment variables
 try:
     load_dotenv()
-    logger.info("环境变量已加载")
+    logger.info("Environment variables loaded")
 except Exception as e:
-    logger.warning(f"加载.env文件失败: {e}")
-    pass  # 如果.env文件不存在，忽略错误
+    logger.warning(f"Failed to load .env file: {e}")
+    pass  # Ignore error if .env file doesn't exist
 
 app = FastAPI()
 
-# 配置CORS
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 允许所有来源，实际生产环境应该限制
+    allow_origins=["*"],  # Allow all origins, should be restricted in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 获取Elasticsearch配置
+# Get Elasticsearch configuration
 elastic_password = os.getenv("ELASTIC_PASSWORD", "yourpassword")
 elasticsearch_host = os.getenv("ELASTICSEARCH_HOST", "http://elasticsearch:9200")
-logger.info(f"使用Elasticsearch主机: {elasticsearch_host}")
-logger.info(f"使用Elasticsearch密码: {elastic_password[:2]}***")
+logger.info(f"Using Elasticsearch host: {elasticsearch_host}")
+logger.info(f"Using Elasticsearch password: {elastic_password[:2]}***")
 
-# 创建全局Elasticsearch客户端变量
+# Create global Elasticsearch client variable
 es = None
 
-# 定义连接函数，允许重试
+# Define connection function with retry
 def connect_elasticsearch(max_retries=5, retry_interval=5):
     global es
     
-    # 尝试Docker网络中的连接
+    # Try connections in Docker network
     es_hosts = [
-        elasticsearch_host,         # 环境变量中的主机
-        "http://elasticsearch:9200",  # Docker网络名称
-        "http://localhost:9200",      # 本地主机名
-        "http://127.0.0.1:9200",      # IPv4 本地地址
+        elasticsearch_host,         # Host from environment variable
+        "http://elasticsearch:9200",  # Docker network name
+        "http://localhost:9200",      # Local hostname
+        "http://127.0.0.1:9200",      # IPv4 local address
     ]
     
-    # 添加重试逻辑
+    # Add retry logic
     for retry in range(max_retries):
-        logger.info(f"尝试连接Elasticsearch (第 {retry+1}/{max_retries} 次)")
+        logger.info(f"Attempting to connect to Elasticsearch (try {retry+1}/{max_retries})")
         
         for host in es_hosts:
             try:
-                logger.info(f"尝试连接到: {host}")
+                logger.info(f"Trying to connect to: {host}")
                 es_client = Elasticsearch(
                     host,
                     basic_auth=("elastic", elastic_password),
@@ -68,21 +68,21 @@ def connect_elasticsearch(max_retries=5, retry_interval=5):
                 )
                 
                 if es_client.ping():
-                    logger.info(f"成功连接到Elasticsearch: {host}")
+                    logger.info(f"Successfully connected to Elasticsearch: {host}")
                     return es_client
             except Exception as e:
-                logger.error(f"连接 {host} 失败: {e}")
+                logger.error(f"Connection to {host} failed: {e}")
         
-        # 如果没有成功连接，等待后重试
+        # If no successful connection, wait before retrying
         if retry < max_retries - 1:
-            logger.info(f"等待 {retry_interval} 秒后重试...")
+            logger.info(f"Waiting {retry_interval} seconds before retrying...")
             time.sleep(retry_interval)
     
-    # 所有重试失败后，返回模拟客户端
-    logger.warning("所有连接尝试失败，使用模拟客户端")
+    # After all retries failed, return mock client
+    logger.warning("All connection attempts failed, using mock client")
     return create_mock_client()
 
-# 创建模拟客户端
+# Create mock client
 def create_mock_client():
     class MockElasticsearch:
         def ping(self):
@@ -95,35 +95,35 @@ def create_mock_client():
             return MockCluster()
             
         def search(self, **kwargs):
-            logger.warning("使用模拟Elasticsearch客户端，返回空结果")
+            logger.warning("Using mock Elasticsearch client, returning empty results")
             index = kwargs.get('index', 'unknown')
             body = kwargs.get('body', {})
-            logger.info(f"模拟搜索: 索引={index}, 查询={body}")
+            logger.info(f"Mock search: index={index}, query={body}")
             return {"hits": {"hits": []}}
     
     return MockElasticsearch()
 
-# 初始化向量模型
+# Initialize vector model
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# 索引名称
+# Index name
 INDEX_NAME = "research_papers"
 
 class SearchRequest(BaseModel):
     text: str
     top_k: int = 10
 
-# 应用启动事件
+# Application startup event
 @app.on_event("startup")
 async def startup_event():
     global es
-    # 连接到Elasticsearch
+    # Connect to Elasticsearch
     es = connect_elasticsearch()
-    logger.info("应用启动完成，Elasticsearch客户端已初始化")
+    logger.info("Application startup complete, Elasticsearch client initialized")
 
 @app.get("/health")
 async def health_check():
-    """健康检查接口"""
+    """Health check endpoint"""
     try:
         health = es.cluster.health()
         return {"status": "ok", "es_status": health["status"]}
@@ -132,7 +132,7 @@ async def health_check():
 
 @app.post("/vectorize")
 async def vectorize_text(text: str):
-    """向量化文本"""
+    """Vectorize text"""
     try:
         vector = model.encode(text).tolist()
         return {"vector": vector}
@@ -141,24 +141,24 @@ async def vectorize_text(text: str):
 
 @app.post("/search/vector")
 async def vector_search(request: SearchRequest):
-    """根据文本进行向量搜索"""
+    """Search by text vector"""
     try:
-        logger.info(f"接收到向量搜索请求: {request.text[:30]}... (top_k={request.top_k})")
+        logger.info(f"Received vector search request: {request.text[:30]}... (top_k={request.top_k})")
         
-        # 检查Elasticsearch连接
+        # Check Elasticsearch connection
         if es is None:
-            logger.error("Elasticsearch客户端未初始化")
-            raise HTTPException(status_code=503, detail="Elasticsearch服务不可用")
+            logger.error("Elasticsearch client not initialized")
+            raise HTTPException(status_code=503, detail="Elasticsearch service unavailable")
             
-        # 将输入文本向量化
+        # Vectorize input text
         try:
             query_vector = model.encode(request.text).tolist()
-            logger.info(f"成功将文本向量化，向量维度: {len(query_vector)}")
+            logger.info(f"Successfully vectorized text, vector dimension: {len(query_vector)}")
         except Exception as e:
-            logger.error(f"文本向量化失败: {e}")
-            raise HTTPException(status_code=500, detail=f"文本向量化错误: {str(e)}")
+            logger.error(f"Text vectorization failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Text vectorization error: {str(e)}")
         
-        # 构建查询
+        # Build query
         try:
             query = {
                 "knn": {
@@ -169,20 +169,20 @@ async def vector_search(request: SearchRequest):
                 },
                 "_source": ["doi", "sentences"]
             }
-            logger.info("已构建KNN查询")
+            logger.info("KNN query built")
         except Exception as e:
-            logger.error(f"构建查询失败: {e}")
-            raise HTTPException(status_code=500, detail=f"构建查询错误: {str(e)}")
+            logger.error(f"Query building failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Query building error: {str(e)}")
         
-        # 执行搜索
+        # Execute search
         try:
             response = es.search(index=INDEX_NAME, body=query)
-            logger.info(f"搜索成功，找到 {len(response['hits']['hits'])} 个结果")
+            logger.info(f"Search successful, found {len(response['hits']['hits'])} results")
         except Exception as e:
-            logger.error(f"Elasticsearch搜索失败: {e}")
-            raise HTTPException(status_code=500, detail=f"搜索错误: {str(e)}")
+            logger.error(f"Elasticsearch search failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
         
-        # 处理结果
+        # Process results
         results = []
         for hit in response['hits']['hits']:
             results.append({
@@ -191,17 +191,17 @@ async def vector_search(request: SearchRequest):
                 "score": hit['_score']
             })
         
-        logger.info(f"成功返回 {len(results)} 个结果")
+        logger.info(f"Successfully returned {len(results)} results")
         return {"results": results}
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"向量搜索未处理异常: {e}")
+        logger.exception(f"Unhandled exception in vector search: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/search/doi/{doi}")
 async def search_by_doi(doi: str, size: int = 10):
-    """根据DOI搜索文档"""
+    """Search documents by DOI"""
     try:
         query = {
             "query": {
