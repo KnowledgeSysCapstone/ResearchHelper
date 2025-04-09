@@ -3,6 +3,8 @@ import json
 with open("rawtext_dataset.txt", 'r', encoding='UTF-8') as file:
     rtds = json.load(file)
 
+with open("abstracts_full.txt", 'r', encoding='UTF-8') as file:
+    correct_abstracts = json.load(file)
 
 query_as_key = {}
 dontallow = ["|", "{", "}", "http"]
@@ -12,9 +14,15 @@ for x in rtds:
     if len(sentence) < 75 or len(sentence) > 175:
         continue
 
+    skip = False
     for d in dontallow:
         if d in sentence:
-            continue
+            skip = True
+    if skip:
+        continue
+
+    if x["doi"] not in correct_abstracts:
+        continue
 
     if sentence not in query_as_key:
         query_as_key[sentence] = [x["doi"]]
