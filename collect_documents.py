@@ -8,7 +8,7 @@ from spacy.lang.en import English
 import lxml  # needed for BeautifulSoup XML parser
 
 
-def get_journals(keyword: str, min_abstracts: int) -> Iterator[str]:
+def get_journals(keyword: str, min_abstracts: int, do_print: bool) -> Iterator[str]:
     """Collects journals from CrossRef that match a query
 
     Parameters
@@ -17,6 +17,8 @@ def get_journals(keyword: str, min_abstracts: int) -> Iterator[str]:
         Word or phrase used to query CrossRef for journals.
     min_abstracts : int
         Minimum number of abstracts in journal. Journals with less are not returned.
+    do_print : bool
+        Whether to print progress through API calls.
 
     Yields
     ------
@@ -25,36 +27,38 @@ def get_journals(keyword: str, min_abstracts: int) -> Iterator[str]:
     """
     cursor = '*'  # Cursor for iterating pages
     # issns = []
-    # count = 0
-    # total_journals = -1
-    # i = 0
+    count = 0
+    total_journals = -1
+    i = 0
 
     # Iterate over pages
     while cursor:
-        # print(i)
-        # i += 1
-
         # Query metadata for next page
         resp = requests.get("https://api.crossref.org/journals?query={}&cursor={}".format(keyword, cursor))
         metadata = json.loads(resp.text)["message"]
         cursor = metadata["next-cursor"] if len(metadata["items"]) == metadata["items-per-page"] else ""
 
-        # if total_journals < 0:
-        #     total_journals = metadata["total-results"]
+        if total_journals < 0:
+            total_journals = metadata["total-results"]
 
         # Iterate journals on page
         for journal in metadata["items"]:
+            i += 1
             # Calculate number of usable abstracts in the journal by multiply total DOIs by coverage
             contrib = journal["counts"]["total-dois"] * journal["coverage-type"]["all"]["abstracts"]
             if contrib > min_abstracts:
                 # Add electronic ISSN for journal if it has enough abstracts
                 for x in journal["issn-type"]:
                     if x["type"] == 'electronic':
+
+                        if do_print:
+                            print(f"Journal {i} out of {total_journals}")
+
                         yield x["value"]
                         break
 
                 # issns.extend([x["value"] for x in journal["issn-type"] if x["type"] == 'electronic'])
-                # count += contrib
+                count += contrib
 
     # print("total journals", total_journals)
     # print("useful issns", len(issns))
@@ -63,7 +67,7 @@ def get_journals(keyword: str, min_abstracts: int) -> Iterator[str]:
     # return issns
 
 
-def get_papers(issns: Iterator[str], min_cited: int) -> Iterator[dict[str]]:
+def get_papers(issns: Iterator[str], min_cited: int, do_print: bool) -> Iterator[dict[str]]:
     """Collects the most highly cited papers from the given journal.
 
     Parameters
@@ -72,6 +76,8 @@ def get_papers(issns: Iterator[str], min_cited: int) -> Iterator[dict[str]]:
         Iterator for ISSNs representing journals to get papers from.
     min_cited : int
         Minimum number of times a paper must be cited by other papers in CrossRef in order to be included.
+    do_print : bool
+        Whether to print progress through API calls.
 
     Yields
     ------
@@ -80,12 +86,13 @@ def get_papers(issns: Iterator[str], min_cited: int) -> Iterator[dict[str]]:
     """
     for issn in issns:
         cursor = "*"  # Cursor for iterating pages
-        # total_papers = -1
-        # count_accept = 0
+        total_papers = -1
+        count_accept = 0
         # ret_obj = {}
 
         # Iterate over pages
         while cursor:
+
             # Query next page. Filters for journal articles with abstracts and sorts by number of times cited
             resp = requests.get("https://api.crossref.org/works/?filter=issn:{},type:journal-article,"
                                 "has-abstract:true&sort=is-referenced-by-count&select=DOI,abstract,article-number,"
@@ -95,26 +102,32 @@ def get_papers(issns: Iterator[str], min_cited: int) -> Iterator[dict[str]]:
             metadata = json.loads(resp.text)["message"]
             cursor = metadata["next-cursor"] if len(metadata["items"]) == metadata["items-per-page"] else ""
 
-            # if total_papers < 0:
-            #     total_papers = metadata["total-results"]
+            if total_papers < 0:
+                total_papers = metadata["total-results"]
 
             # Iterate over papers on page
             for paper in metadata["items"]:
+                count_accept += 1
+                if do_print:
+                    print("\r", "                                                                         ", end='')
+                    print("\r",
+                          f"acc:{count_accept} total:{total_papers} refs:{paper['is-referenced-by-count']}",
+                          end='')
                 if paper["is-referenced-by-count"] >= min_cited:
                     # Accept paper and add metadata paper to return object
                     yield paper
 
                     # ret_obj[paper["DOI"]] = paper
-                    # count_accept += 1
+
                 else:
                     # Once citations drop below minimum, stop iterating this journal
                     cursor = ""
                     break
 
-                # print("\r", f"acc:{count_accept} total:{total_papers} refs:{paper['is-referenced-by-count']}", end='')
 
 
-        # print("\r", f"Journal {issn}. accept {count_accept} / {total_papers}")
+        if do_print:
+            print("\r", f"Journal {issn}. accept {count_accept} / {total_papers}")
         # return ret_obj
 
 
@@ -188,7 +201,8 @@ def embed_vectors(title: str, sentences: list[str]) -> dict[str, list[int]]:
     return {inp: embed for inp, embed in zip(input_text, embeddings.tolist())}
 
 
-def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50) -> Iterator[dict[str]]:
+def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50,
+                  do_print: bool = False) -> Iterator[dict[str]]:
     """Gets documents containing paper metadata and vectors from journals matching query.
 
     Parameters
@@ -199,6 +213,8 @@ def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50) 
         Minimum number of abstracts in journal. Journals with less are not returned.
     min_cited : int
         Minimum number of times a paper must be cited by other papers in CrossRef in order to be included.
+    do_print : bool
+        Whether to print progress through API calls.
 
     Yields
     ------
@@ -206,14 +222,20 @@ def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50) 
         Document of metadata and vectors for next paper.
     """
 
-    journals_it = get_journals(keyword, min_abstracts)
-    papers_it = get_papers(journals_it, min_cited)
+    journals_it = get_journals(keyword, min_abstracts, do_print)
+    papers_it = get_papers(journals_it, min_cited, do_print)
 
     for paper in papers_it:
         abstract = paper["abstract"]
         parsed = parse_abstract(abstract)  # Convert abstract to plaintext
+        if do_print:
+            print(" - parsed", end='')
         sentenced = separate_sentences(parsed)  # Separate abstract into sentences
+        if do_print:
+            print(" - sentenced", end='')
         vectors = embed_vectors(paper["title"][0], sentenced)  # Embed sentences with title into vectors
+        if do_print:
+            print(" - embedded", end='')
         yield {
             "metadata": paper,
             "embedding": vectors
@@ -222,9 +244,9 @@ def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50) 
 
 if __name__ == '__main__':
 
-    docs = get_documents("food", 5000, 1000)
+    docs = get_documents("food", 5000, 500, do_print=True)
     for d in docs:
-        print(d)
+        pass
 
 
 #     ret_dict = {}
