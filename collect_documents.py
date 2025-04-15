@@ -95,10 +95,9 @@ def get_papers(issns: Iterator[str], min_cited: int, do_print: bool) -> Iterator
 
             # Query next page. Filters for journal articles with abstracts and sorts by number of times cited
             resp = requests.get("https://api.crossref.org/works/?filter=issn:{},type:journal-article,"
-                                "has-abstract:true&sort=is-referenced-by-count&select=DOI,abstract,article-number,"
-                                "author,container-title,group-title,is-referenced-by-count,issn-type,issue,link,page,"
-                                "published,publisher,publisher-location,short-title,subject,subtitle,title,translator,"
-                                "type,volume&cursor={}".format(issn, cursor))
+                                "has-abstract:true&sort=is-referenced-by-count&select=DOI,author,published,title,"
+                                "container-title,volume,issue,page,indexed,abstract,is-referenced-by-count,type,"
+                                "ISSN,license&cursor={}".format(issn, cursor))
             metadata = json.loads(resp.text)["message"]
             cursor = metadata["next-cursor"] if len(metadata["items"]) == metadata["items-per-page"] else ""
 
@@ -236,10 +235,105 @@ def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50,
         vectors = embed_vectors(paper["title"][0], sentenced)  # Embed sentences with title into vectors
         if do_print:
             print(" - embedded", end='')
+
+        # Remove unnecessary info from certain fields
+        paper["author"] = [{"given": x["given"], "family": x["family"]} for x in paper["author"]]
+        paper["container-title"] = paper["container-title"][0]
+        indexed = paper["indexed"]["date-parts"][0]
+        paper["indexed"] = {"year": indexed[0], "month": indexed[1], "day": indexed[2]}
+        published = paper["published"]["date-parts"][0]
+        paper["published"] = {"year": published[0], "month": published[1], "day": published[2]}
+        paper["text-type"] = paper["type"]
+        del paper["type"]
+        license_date = paper["license"][0]["start"]["date-parts"][0]
+        paper["license"] = {
+            "start": {
+                "year": license_date[0], "month": license_date[1], "day": license_date[2]
+            },
+            "content-version": paper["license"][0]["content-version"],
+            "delay-in-days": paper["license"][0]["delay-in-days"],
+            "URL": paper["license"][0]["URL"]
+        }
+
+        vectors_dicts = [{"vector": vectors[x], "title-and-sentence": x} for x in vectors]
+
         yield {
             "metadata": paper,
-            "embedding": vectors
+            "embedded_paper": vectors_dicts
         }
+
+
+def elasticsearch_mappings() -> dict[str]:
+    """Get mappings schema for Elasticsearch
+
+    Returns
+    -------
+    dict of str
+        Mappings dictionary describing the Elasticsearch schema that accepts this script's documents.
+
+    """
+    return {
+        "mappings": {
+            "properties": {
+                "embedded_paper": {
+                    "type": "nested",
+                    "properties": {
+                        "vector": {
+                            "type": "dense_vector",
+                            "dims": 384,
+                            "index": True,
+                            "similarity": "cosine"
+                        },
+                        "title-and-sentence": {
+                            "type": "text"
+                        }
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "DOI": {"type": "keyword"},
+                    "author": {
+                        "type": "object",
+                        "given": {"type": "text"},
+                        "family": {"type": "text"}
+                    },
+                    "published": {
+                        "type": "object",
+                        "year": "integer",
+                        "month": "integer",
+                        "day": "integer"
+                    },
+                    "title": {"type": "text"},
+                    "container-title": {"type": "text"},
+                    "volume": {"type": "integer"},
+                    "issue": {"type": "integer"},
+                    "page": {"type": "text"},
+                    "indexed": {
+                        "type": "object",
+                        "year": "integer",
+                        "month": "integer",
+                        "day": "integer"
+                    },
+                    "abstract": {"type": "text"},
+                    "is-referenced-by-count": {"type": "integer"},
+                    "text-type": {"type": "keyword"},
+                    "ISSN": {"type": "keyword"},
+                    "license": {
+                        "type": "object",
+                        "start": {
+                            "type": "object",
+                            "year": {"type": "integer"},
+                            "month": {"type": "integer"},
+                            "day": {"type": "integer"}
+                        },
+                        "content-version": {"type": "keyword"},
+                        "delay-in-days": {"type": "integer"},
+                        "URL": {"type": "keyword"}
+                    }
+                }
+            }
+        }
+    }
 
 
 if __name__ == '__main__':
