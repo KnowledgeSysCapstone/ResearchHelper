@@ -7,6 +7,8 @@ from sentence_transformers import SentenceTransformer
 from spacy.lang.en import English
 import lxml  # needed for BeautifulSoup XML parser
 
+# Use SentenceBERT model
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def get_journals(keyword: str, min_abstracts: int, do_print: bool) -> Iterator[str]:
     """Collects journals from CrossRef that match a query
@@ -123,8 +125,6 @@ def get_papers(issns: Iterator[str], min_cited: int, do_print: bool) -> Iterator
                     cursor = ""
                     break
 
-
-
         if do_print:
             print("\r", f"Journal {issn}. accept {count_accept} / {total_papers}")
         # return ret_obj
@@ -189,9 +189,6 @@ def embed_vectors(title: str, sentences: list[str]) -> dict[str, list[int]]:
     dict of str
         Dictionary mapping title and sentence strings to their embedding vector.
     """
-    # Use SentenceBERT model
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-
     # Input is title prepended to sentences
     input_text = [title + ": " + s for s in sentences]
 
@@ -333,6 +330,38 @@ def elasticsearch_mappings() -> dict[str]:
                 }
             }
         }
+    }
+
+
+def form_query(query: str, num_results: int) -> dict[str]:
+    """Forms an Elasticsearch vector search query by embedding the given query string
+    Parameters
+    ----------
+    query : str
+        A user-submitted string to embed into a vector and search for similar sentences with
+    num_results : int
+        The number of closest documents to return
+
+    Returns
+    -------
+    dict of str
+        A query for Elasticsearch
+    """
+
+    embeddings = model.encode(query)
+
+    return {
+      "knn": {
+        "field": "embedded_paper.vector",
+        "query_vector": embeddings,
+        "k": num_results,
+        "num_candidates": 200,
+        "inner_hits": {
+          "_source": False,
+          "fields": ["embedded_paper.title-and-sentence"],
+          "size": 1
+        }
+      }
     }
 
 
