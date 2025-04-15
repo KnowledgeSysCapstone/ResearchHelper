@@ -99,7 +99,7 @@ def get_papers(issns: Iterator[str], min_cited: int, do_print: bool) -> Iterator
             resp = requests.get("https://api.crossref.org/works/?filter=issn:{},type:journal-article,"
                                 "has-abstract:true&sort=is-referenced-by-count&select=DOI,author,published,title,"
                                 "container-title,volume,issue,page,indexed,abstract,is-referenced-by-count,type,"
-                                "ISSN,license&cursor={}".format(issn, cursor))
+                                "ISSN&cursor={}".format(issn, cursor))
             metadata = json.loads(resp.text)["message"]
             cursor = metadata["next-cursor"] if len(metadata["items"]) == metadata["items-per-page"] else ""
 
@@ -112,7 +112,7 @@ def get_papers(issns: Iterator[str], min_cited: int, do_print: bool) -> Iterator
                 if do_print:
                     print("\r", "                                                                         ", end='')
                     print("\r",
-                          f"acc:{count_accept} total:{total_papers} refs:{paper['is-referenced-by-count']}",
+                          f"acc:{count_accept - 1} total:{total_papers} refs:{paper['is-referenced-by-count']}",
                           end='')
                 if paper["is-referenced-by-count"] >= min_cited:
                     # Accept paper and add metadata paper to return object
@@ -123,6 +123,7 @@ def get_papers(issns: Iterator[str], min_cited: int, do_print: bool) -> Iterator
                 else:
                     # Once citations drop below minimum, stop iterating this journal
                     cursor = ""
+                    count_accept -= 1
                     break
 
         if do_print:
@@ -221,6 +222,14 @@ def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50,
     journals_it = get_journals(keyword, min_abstracts, do_print)
     papers_it = get_papers(journals_it, min_cited, do_print)
 
+    def reformat_date(og_dict, label):
+        date_parts = ["year", "month", "day"]
+
+        new_format = {}
+        for i, p in enumerate(og_dict[label]["date-parts"][0]):
+            new_format[date_parts[i]] = p
+        og_dict[label] = new_format
+
     for paper in papers_it:
         abstract = paper["abstract"]
         parsed = parse_abstract(abstract)  # Convert abstract to plaintext
@@ -233,25 +242,17 @@ def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50,
         if do_print:
             print(" - embedded", end='')
 
+
+
         # Remove unnecessary info from certain fields
         paper["author"] = [{"given": x["given"], "family": x["family"]} for x in paper["author"]]
         paper["container-title"] = paper["container-title"][0]
-        indexed = paper["indexed"]["date-parts"][0]
-        paper["indexed"] = {"year": indexed[0], "month": indexed[1], "day": indexed[2]}
-        published = paper["published"]["date-parts"][0]
-        paper["published"] = {"year": published[0], "month": published[1], "day": published[2]}
+
+        reformat_date(paper, "indexed")
+        reformat_date(paper, "published")
+
         paper["text-type"] = paper["type"]
         del paper["type"]
-        license_date = paper["license"][0]["start"]["date-parts"][0]
-        paper["license"] = {
-            "start": {
-                "year": license_date[0], "month": license_date[1], "day": license_date[2]
-            },
-            "content-version": paper["license"][0]["content-version"],
-            "delay-in-days": paper["license"][0]["delay-in-days"],
-            "URL": paper["license"][0]["URL"]
-        }
-
         vectors_dicts = [{"vector": vectors[x], "title-and-sentence": x} for x in vectors]
 
         yield {
@@ -314,19 +315,7 @@ def elasticsearch_mappings() -> dict[str]:
                     "abstract": {"type": "text"},
                     "is-referenced-by-count": {"type": "integer"},
                     "text-type": {"type": "keyword"},
-                    "ISSN": {"type": "keyword"},
-                    "license": {
-                        "type": "object",
-                        "start": {
-                            "type": "object",
-                            "year": {"type": "integer"},
-                            "month": {"type": "integer"},
-                            "day": {"type": "integer"}
-                        },
-                        "content-version": {"type": "keyword"},
-                        "delay-in-days": {"type": "integer"},
-                        "URL": {"type": "keyword"}
-                    }
+                    "ISSN": {"type": "keyword"}
                 }
             }
         }
@@ -367,9 +356,13 @@ def form_query(query: str, num_results: int) -> dict[str]:
 
 if __name__ == '__main__':
 
-    docs = get_documents("food", 5000, 500, do_print=True)
+    docs = get_documents("food", 5000, 1000, do_print=True)
+    write_list = []
     for d in docs:
-        pass
+        write_list.append(d)
+
+    with open("collected.json", 'w', encoding='UTF-8') as file:
+        json.dump(write_list, file, indent=2)
 
 
 #     ret_dict = {}
