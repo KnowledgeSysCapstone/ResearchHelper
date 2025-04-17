@@ -1,12 +1,12 @@
 # Research Helper - Vector Search System
 
-A vector search system based on Elasticsearch for finding similar sentences in research papers using vector similarity.
+A vector search system based on Elasticsearch for finding research papers relevent to a claim.
 
 ## System Architecture
 
-- **Elasticsearch**: Provides vector storage and search functionality
-- **FastAPI Backend**: Provides vectorization and search APIs
-- **Next.js Frontend**: Provides user interface
+- **Elasticsearch**: Provides vector storage and search functionality.
+- **FastAPI Backend**: Provides vectorization and search APIs.
+- **Next.js Frontend**: Provides user interface.
 
 ## Getting Started
 
@@ -20,7 +20,7 @@ A vector search system based on Elasticsearch for finding similar sentences in r
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/ResearchHelper.git
+   git clone https://github.com/KnowledgeSysCapstone/ResearchHelper.git
    cd ResearchHelper
    ```
 
