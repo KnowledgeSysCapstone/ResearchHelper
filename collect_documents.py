@@ -198,7 +198,7 @@ def embed_vectors(title: str, sentences: list[str]) -> dict[str, list[int]]:
     return {inp: embed for inp, embed in zip(input_text, embeddings.tolist())}
 
 
-def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50,
+def get_documents(keyword: str, min_abstracts: int = 5000, min_cited: int = 100,
                   do_print: bool = False) -> Iterator[dict[str]]:
     """Gets documents containing paper metadata and vectors from journals matching query.
 
@@ -245,7 +245,11 @@ def get_documents(keyword: str, min_abstracts: int = 1000, min_cited: int = 50,
 
 
         # Remove unnecessary info from certain fields
-        paper["author"] = [{"given": x["given"], "family": x["family"]} for x in paper["author"]]
+        if paper.get("author"):
+            paper["author"] = [{"given": x.get("given", ""), "family": x.get("family", "")} for x in paper["author"]]
+        else:
+            paper["author"] = []
+
         paper["container-title"] = paper["container-title"][0]
 
         reformat_date(paper, "indexed")
@@ -289,17 +293,22 @@ def elasticsearch_mappings() -> dict[str]:
                 },
                 "metadata": {
                     "type": "object",
+                    "properties": {
                     "DOI": {"type": "keyword"},
                     "author": {
                         "type": "object",
+                        "properties": {
                         "given": {"type": "text"},
                         "family": {"type": "text"}
+                        }
                     },
                     "published": {
                         "type": "object",
-                        "year": "integer",
-                        "month": "integer",
-                        "day": "integer"
+                        "properties": {
+                        "year": {"type": "integer"},
+                        "month": {"type": "integer"},
+                        "day": {"type": "integer"}
+                        }
                     },
                     "title": {"type": "text"},
                     "container-title": {"type": "text"},
@@ -308,14 +317,17 @@ def elasticsearch_mappings() -> dict[str]:
                     "page": {"type": "text"},
                     "indexed": {
                         "type": "object",
-                        "year": "integer",
-                        "month": "integer",
-                        "day": "integer"
+                        "properties": {
+                        "year": {"type": "integer"},
+                        "month": {"type": "integer"},
+                        "day": {"type": "integer"}
+                        }
                     },
                     "abstract": {"type": "text"},
                     "is-referenced-by-count": {"type": "integer"},
                     "text-type": {"type": "keyword"},
                     "ISSN": {"type": "keyword"}
+                    }
                 }
             }
         }
@@ -356,7 +368,7 @@ def form_query(query: str, num_results: int) -> dict[str]:
 
 if __name__ == '__main__':
 
-    docs = get_documents("food", 5000, 1000, do_print=True)
+    docs = get_documents("food", 1000, 500, do_print=True)
     write_list = []
     for d in docs:
         write_list.append(d)
