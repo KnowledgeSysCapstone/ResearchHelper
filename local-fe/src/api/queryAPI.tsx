@@ -1,84 +1,54 @@
-// Original query API function
-export async function queryAPI(query: string) {
-    const response = await fetch("REPLACEWITHENDPOINT", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query }),
-    })
-  
-    if (!response.ok) {
-      throw new Error("Failed to fetch data.")
-    }
-  
-    return response.json()
-  }
-  
-// API Base URL - Use service name in Docker environment
-const API_BASE_URL = 'http://backend:8000';
+// api/queryAPI, utilized by all routes to make requests to backend.
+// Defaults to expected docker container address if not set in .env.
 
-// Send search request to backend API
+const API_BASE_URL = process.env.BACKEND_URL || 'http://backend:8000';
+
+export async function queryAPI<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Backend error ${response.status}: ${errorText}`);
+  }
+
+  return await response.json();
+}
+
 export async function vectorSearchAPI(text: string, topK: number = 10) {
   try {
-    const response = await fetch('/api/search/vector', {
+    const response = await queryAPI<{ results: any[] }>('/api/search/vector', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         text: text,
         top_k: topK
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-
-    return await response.json();
+    return response.results; // Assuming response contains 'results'
   } catch (error) {
-    console.error('Error during API call:', error);
+    console.error('Error during vector search API call:', error);
     throw error;
   }
 }
 
-// Search by DOI
 export async function searchByDOI(doi: string, size: number = 10) {
   try {
-    const response = await fetch(`/api/search/doi/${encodeURIComponent(doi)}?size=${size}`, {
+    const response = await queryAPI<{ results: any[] }>(`/api/search/doi/${encodeURIComponent(doi)}?size=${size}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-
-    return await response.json();
+    return response.results; // Assuming response contains 'results'
   } catch (error) {
-    console.error('Error during API call:', error);
+    console.error('Error during DOI search API call:', error);
     throw error;
   }
 }
-
-// Health check
-export async function healthCheck() {
-  try {
-    const response = await fetch('/api/health', {
-      method: 'GET'
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error during health check:', error);
-    throw error;
-  }
-}
-  

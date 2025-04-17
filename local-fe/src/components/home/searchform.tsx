@@ -47,8 +47,8 @@ export function SearchForm() {
 
       try {
         // Call vector search API
-        const response = await vectorSearchAPI(values.searchQuery)
-        setResults(response.results)
+        const response = await vectorSearchAPI(values.searchQuery);
+        setResults(response)
       } catch (error) {
         console.error("Error during API call: ", error)
         setError("An error occurred during search. Please try again later.")
