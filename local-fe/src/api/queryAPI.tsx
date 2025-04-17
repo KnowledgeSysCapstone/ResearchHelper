@@ -3,6 +3,7 @@
 
 const API_BASE_URL = process.env.BACKEND_URL || 'http://backend:8000';
 
+// Generalized API call to access fastAPI.
 export async function queryAPI<T>(
   path: string,
   options: RequestInit = {}

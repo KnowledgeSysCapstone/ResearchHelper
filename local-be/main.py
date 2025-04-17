@@ -28,17 +28,19 @@ ELASTICSEARCH_HOST = os.getenv("ELASTICSEARCH_HOST", "http://elasticsearch:9200"
 es = Elasticsearch(ELASTICSEARCH_HOST, basic_auth=("elastic", ELASTIC_PASSWORD), verify_certs=False)
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Placeholder Index (.env variable?)
+# Placeholder Index (.env variable?).
 INDEX_NAME = "research_papers"
 
-# Request Schema for Vector Search
+# Request schema for fector search.
 class SearchRequest(BaseModel):
     text: str
     top_k: int = 10
 
+# Vector Search utilizes a request of type SearchRequest.
 @app.post("/search/vector")
 async def vector_search(request: SearchRequest):
     try:
+        # Encodes the search request text to a vector.
         query_vector = model.encode(request.text).tolist()
         query = {
             "knn": {
