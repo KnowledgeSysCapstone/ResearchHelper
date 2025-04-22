@@ -2,6 +2,16 @@
 
 A vector search system based on Elasticsearch for finding research papers relevent to a claim.
 
+Simple use steps:
+1. Clone repo.
+2. ```docker-compose up --build```
+3. Wait until build finishes.
+4. ```python uploader.py``` | 
+This will take a large amount of time (depending on settings). Go play some games or something.
+Default topic is papers concerning "food".
+5. Access front end at http://localhost:3000.
+6. Type a food-related claim and press search.
+
 ## System Architecture
 
 - **Elasticsearch**: Provides vector storage and search functionality.
@@ -108,7 +118,7 @@ The backend provides the following API endpoints:
 
 ## Troubleshooting
 
-- **Elasticsearch Connection Issues**: Check if Elasticsearch is running with `curl -u elastic:yourpassword http://localhost:9200`
+- **Elasticsearch Connection Issues**: Check if Elasticsearch is running with `curl -u elastic:testpassword http://localhost:9200`
 - **Backend Issues**: Check logs with `docker logs fastapi_backend`
 - **Frontend Issues**: Check logs with `docker logs nextjs_frontend`
 - **Data Issues**: Delete elasticsearch data from docker and re-run `uploader.py`
@@ -119,7 +129,7 @@ To clear the index and reupload data:
 
 ```bash
 # Delete the index.
-curl -XDELETE -u elastic:yourpassword "http://localhost:9200/research_papers"
+curl -XDELETE -u elastic:testpassword "http://localhost:9200/research_papers"
 
 # Reupload data.
 python upload_data.py
