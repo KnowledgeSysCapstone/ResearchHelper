@@ -6,11 +6,12 @@ Simple use steps:
 1. Clone repo.
 2. ```docker-compose up --build```
 3. Wait until build finishes.
-4. ```python uploader.py``` | 
+4. Install dependencies for uploading (see Prereqs.).
+5. ```python uploader.py``` | 
 This will take a large amount of time (depending on settings). Go play some games or something.
 Default topic is papers concerning "food".
-5. Access front end at http://localhost:3000.
-6. Type a food-related claim and press search.
+6. Access front end at http://localhost:3000.
+7. Type a food-related claim and press search.
 
 ## System Architecture
 
@@ -43,18 +44,18 @@ to install these requirements at once.
 ### Environment Setup
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/KnowledgeSysCapstone/ResearchHelper.git
-   cd ResearchHelper
-   ```
+```bash
+git clone https://github.com/KnowledgeSysCapstone/ResearchHelper.git
+cd ResearchHelper
+```
 
 2. Create `.env` file (or modify that provided) with the following content:
-   ```
-  STACK_VERSION=9.0.0
-  ES_PORT=9200
-  ELASTICSEARCH_HOST=http://elasticsearch:9200
-  ELASTIC_PASSWORD=testpass
-   ```
+```bash
+STACK_VERSION=9.0.0
+ES_PORT=9200
+ELASTICSEARCH_HOST=http://elasticsearch:9200
+ELASTIC_PASSWORD=testpass
+```
 
 ## Starting the Services
 
