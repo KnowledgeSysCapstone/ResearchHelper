@@ -2,9 +2,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from elasticsearch import Elasticsearch
-from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 import os
+from collect_documents import form_query
 
 # Load .env if available.
 load_dotenv()
@@ -24,64 +24,58 @@ app.add_middleware(
 ELASTIC_PASSWORD = os.getenv("ELASTIC_PASSWORD", "password")
 ELASTICSEARCH_HOST = os.getenv("ELASTICSEARCH_HOST", "http://elasticsearch:9200")
 
-# Initialize elasticsearch connection and sentence vector model.
+# Initialize elasticsearch connection.
 es = Elasticsearch(ELASTICSEARCH_HOST, basic_auth=("elastic", ELASTIC_PASSWORD), verify_certs=False)
-model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # Placeholder Index (.env variable?).
 INDEX_NAME = "research_papers"
 
-# Request schema for fector search.
+# Request schema for vector search.
 class SearchRequest(BaseModel):
     text: str
     top_k: int = 10
 
-# Vector Search utilizes a request of type SearchRequest.
-@app.post("/search/vector")
-async def vector_search(request: SearchRequest):
+# Copy of below, utilized to test raw hit format from ES.
+@app.post("/search/vector/test")
+async def vector_search_test(request: SearchRequest):
     try:
-        # Encodes the search request text to a vector.
-        query_vector = model.encode(request.text).tolist()
-        query = {
-            "knn": {
-                "field": "sentence_vectors",
-                "query_vector": query_vector,
-                "k": request.top_k,
-                "num_candidates": 100
-            },
-            "_source": ["doi", "sentences"]
-        }
+        query = form_query(request.text, request.top_k)
         response = es.search(index=INDEX_NAME, body=query)
-        results = [
-            {
-                "doi": hit["_source"]["doi"],
-                "sentence": hit["_source"]["sentences"],
-                "score": hit["_score"]
-            } for hit in response["hits"]["hits"]
-        ]
-        return {"results": results}
+        if response["hits"]["hits"]:
+            first_hit = response["hits"]["hits"][0]
+            print("First Elasticsearch hit:\n", first_hit)
+            return {"raw_first_hit": first_hit}
+        else:
+            return {"message": "No hits found."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/search/doi/{doi}")
-async def search_by_doi(doi: str, size: int = 10):
+
+# Vector Search utilizes a request of type SearchRequest.
+# Encodes a query as a proper elastic search and returns the search result from the client.
+@app.post("/search/vector")
+async def vector_search(request: SearchRequest):
     try:
-        query = {
-            "query": {
-                "term": {
-                    "doi": doi
-                }
-            },
-            "size": size
-        }
+        # Formats as elastic search body and encodes the search request text to a vector.
+        query = form_query(request.text, request.top_k)
         response = es.search(index=INDEX_NAME, body=query)
-        results = [
-            {
-                "doi": hit["_source"]["doi"],
-                "sentence": hit["_source"]["sentences"],
-                "score": hit["_score"]
-            } for hit in response["hits"]["hits"]
-        ]
+        results = []
+        # Loops over the returned hits.
+        for hit in response["hits"]["hits"]:
+            # Access inner hits for embedded paper data.
+            embedded_paper_hits = hit.get("inner_hits", {}).get("embedded_paper", {}).get("hits", {}).get("hits", [])
+            # For each embedded hit...
+            for embedded_hit in embedded_paper_hits:
+                title_and_sentence = embedded_hit.get("fields", {}).get("embedded_paper", [{}])[0].get("title-and-sentence", [])
+                # If there is data for the title-and-sentence...
+                if title_and_sentence:
+                    # Append relevant data to result.
+                    results.append({
+                        "doi": hit["_source"].get("metadata", {}).get("DOI", None),
+                        "sentence": title_and_sentence[0],
+                        "score": hit["_score"]
+                    })
+
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

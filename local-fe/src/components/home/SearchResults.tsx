@@ -13,17 +13,6 @@ interface SearchResultsProps {
 }
 
 export function SearchResults({ results, isLoading, error }: SearchResultsProps) {
-  if (isLoading) {
-    return (
-      <div className="w-full mt-8 p-4 rounded-md shadow">
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <span className="ml-2 text-gray-600">Searching...</span>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="w-full mt-8 p-4 bg-red-50 rounded-md shadow">

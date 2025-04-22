@@ -34,6 +34,8 @@ services:
       - backend
     networks:
       - unifiednet
+    env_file:
+      - .env
 
 volumes:
   esdata:

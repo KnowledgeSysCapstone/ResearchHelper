@@ -11,10 +11,24 @@ A vector search system based on Elasticsearch for finding research papers releve
 ## Getting Started
 
 ### Prerequisites
-
 - Docker and Docker Compose
 - Python 3.10+
 - Node.js 18+
+
+If utilizing the uploader to populate the database, you will need the following pip packages:
+- requests
+- beautifulsoup4
+- sentence-transformers
+- spacy
+- lxml
+- elasticsearch
+- tqdm
+
+You may be able to utilize the command:
+```bash
+pip install requests beautifulsoup4 sentence-transformers spacy lxml elasticsearch tqdm
+```
+to install these requirements at once.
 
 ### Environment Setup
 
@@ -24,13 +38,12 @@ A vector search system based on Elasticsearch for finding research papers releve
    cd ResearchHelper
    ```
 
-2. Create `.env` file with the following content:
+2. Create `.env` file (or modify that provided) with the following content:
    ```
-   STACK_VERSION=8.12.0
-   ELASTIC_PASSWORD=yourpassword
-   ES_PORT=9200
-   KIBANA_PORT=5601
-   MEM_LIMIT=1g
+  STACK_VERSION=9.0.0
+  ES_PORT=9200
+  ELASTICSEARCH_HOST=http://elasticsearch:9200
+  ELASTIC_PASSWORD=testpass
    ```
 
 ## Starting the Services
@@ -41,76 +54,41 @@ Start all services using Docker Compose:
 docker-compose up --build
 ```
 
-After startup, you can access the following services:
+After startup processes, you can access the following services:
 
 - Elasticsearch: http://localhost:9200
 - FastAPI backend: http://localhost:8000
 - Next.js frontend: http://localhost:3000
 
-## Creating Elasticsearch Index
+Please be patient for the project to build.
 
-The system will automatically create the required index when uploading data, but you can also create it manually:
+### Creating Elasticsearch Index and Uploading Data
 
-```bash
-curl -XPUT -u elastic:yourpassword "http://localhost:9200/research_papers" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "mappings": {
-      "properties": {
-        "doi": {
-          "type": "keyword"
-        },
-        "sentences": {
-          "type": "text"
-        },
-        "sentence_vectors": {
-          "type": "dense_vector",
-          "dims": 384,
-          "index": true,
-          "similarity": "cosine"
-        }
-      }
-    }
-  }'
-```
+Data upload should occur after the initial clone and docker-compose up.
+The upload system will automatically create the required index when uploading data.
+This system requires two key files:
 
-## Data Preparation and Upload
+- `collect_documents.py`: Dependency for uploading that collects documents using a chosen subject.
+- `uploader.py`: Contains the uploading logic.
 
-The system requires two key files:
+Uploader utilizes:
+```def get_documents(keyword: str, min_abstracts: int = 5000, min_cited: int = 100, do_print: bool = False) -> Iterator[dict[str]]:```
 
-- `abstracts_parsed.txt`: Contains original sentence data indexed by DOI
-- `abstracts_vectorized.txt`: Contains vector representations of sentences
+To change the default document retrieval of uploading, go to line 41 in uploader.py and modify:
+- str = desired topic
+- min_abstracts and min_cited filters as needed (these ignore providers of lower quality papers)
 
-### Data Format
-
-1. **abstracts_parsed.txt**: A JSON file with DOIs as keys and arrays of sentences as values
-   ```json
-   {
-     "10.1234/example": ["First sentence.", "Second sentence."],
-     "10.5678/sample": ["Another paper sentence."]
-   }
-   ```
-
-2. **abstracts_vectorized.txt**: A JSON file with DOIs as keys and arrays of vector arrays as values
-   ```json
-   {
-     "10.1234/example": [[0.1, 0.2, ...], [0.3, 0.4, ...]],
-     "10.5678/sample": [[0.5, 0.6, ...]]
-   }
-   ```
-
-### Uploading Data
+The default behavior produces a DB with files related to the topic "food".
 
 To upload data to Elasticsearch, run:
-
 ```bash
-python upload_data.py
+python uploader.py
 ```
 
 The script will:
 1. Connect to Elasticsearch
 2. Create the index if it doesn't exist
-3. Parse the data files
+3. Collect data using collect_documents.py
 4. Upload documents in batches
 5. Report progress and completion
 
@@ -127,26 +105,22 @@ The backend provides the following API endpoints:
 
 - **Vector Search**: `POST /search/vector` - Search for similar sentences by text
 - **DOI Search**: `GET /search/doi/{doi}` - Find sentences by DOI
-- **Health Check**: `GET /health` - Check system status
 
 ## Troubleshooting
 
 - **Elasticsearch Connection Issues**: Check if Elasticsearch is running with `curl -u elastic:yourpassword http://localhost:9200`
 - **Backend Issues**: Check logs with `docker logs fastapi_backend`
 - **Frontend Issues**: Check logs with `docker logs nextjs_frontend`
-- **Data Loading Issues**: Verify file formats and run `upload_data.py` with proper permissions
+- **Data Issues**: Delete elasticsearch data from docker and re-run `uploader.py`
 
-## Clearing and Rebuilding the Index
+## Clearing and Rebuilding the Index Manually
 
 To clear the index and reupload data:
 
 ```bash
-# Delete the index
+# Delete the index.
 curl -XDELETE -u elastic:yourpassword "http://localhost:9200/research_papers"
 
-# Recreate the index
-curl -XPUT -u elastic:yourpassword "http://localhost:9200/research_papers" -H "Content-Type: application/json" -d '{"mappings":{"properties":{"doi":{"type":"keyword"},"sentences":{"type":"text"},"sentence_vectors":{"type":"dense_vector","dims":384,"index":true,"similarity":"cosine"}}}}'
-
-# Reupload data
+# Reupload data.
 python upload_data.py
 ```
