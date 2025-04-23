@@ -48,6 +48,21 @@ export function SearchResults({ results, isLoading, error }: SearchResultsProps)
                 </span>
               </div>
               
+              <div>
+                {results.author.length >= 3 && (
+                  <span>{results.author[0].family}, {results.author[0].given}, et al.</span>
+                )}
+                {results.author.length === 2 && (
+                  <span>{results.author[0].family}, {results.author[0].given}, and {results.author[1].given} {results.author[1].family}</span>
+                )}
+                {results.author.length === 1 && (
+                  <span>{results.author[0].family}, {results.author[0].given}</span>
+                )}
+                <span>{results.title} </span>
+                <i>{results.container-title} </i>
+                <span>vol. {results.volume}, no. {results.volume}, {results.published.year}, pp. {results.page}</span>
+              </div>
+
               {/* Sentence content */}
               <p className="text-gray-700">{result.sentence}</p>
             </div>
